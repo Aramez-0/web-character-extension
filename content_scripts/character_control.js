@@ -11,10 +11,17 @@
 // flip character vertiaclly if grabbed below a certain point. dangling by the legs/feet if you will
 // need rebound with that velocity against walls too
 // character continues to slide across bottom of screen after chraracter_velocity(). gravity and character_velocity intervals both switch off. probably
+// only run script on active tabs
 
 let character_img = browser.extension.getURL("assets/img/stick_character.png");
 let namesDb = {};
 let domIdClassPair = {};
+
+// browser.tabs.onActivated.addListener(activatedTab)
+
+// function activatedTab(info) {
+//   browser.tabs.executeScript(info.tabId, {"file": "/content_scripts/character_control.js"})
+// }
 
 class character {
   constructor(name, img = character_img) {
@@ -28,22 +35,12 @@ class character {
     this.img = img;
     this.name = name;
     this.gravity = false;
+    this.flipped = false;
     this.body = generate_character(this);
     this.saveScrollY = window.scrollY;
     this.saveScrollX = window.scrollX;
     this.body.addEventListener("mousedown", handle_character_drag);
-    window.addEventListener("scroll", () => {
-      this.body.style.top =
-        parseFloat(this.body.style.top) +
-        (window.scrollY - this.saveScrollY) +
-        "px";
-      this.body.style.left =
-        parseFloat(this.body.style.left) +
-        (window.scrollX - this.saveScrollX) +
-        "px";
-      this.saveScrollY = window.scrollY;
-      this.saveScrollX = window.scrollX;
-    });
+    window.addEventListener("scroll", handleScroll, this);
   }
 }
 
@@ -65,10 +62,32 @@ function generate_character(character) {
   return c;
 }
 
+function handleScroll(character) {
+  character.body.style.top =
+    parseFloat(character.body.style.top) +
+    (window.scrollY - character.saveScrollY) +
+    "px";
+  character.body.style.left =
+    parseFloat(character.body.style.left) +
+    (window.scrollX - character.saveScrollX) +
+    "px";
+  character.saveScrollY = window.scrollY;
+  character.saveScrollX = window.scrollX;
+}
+
 function handle_character_drag(e) {
   let velocityX = e.clientX;
   let velocityY = e.clientY;
   let mouseMoveEvent = e;
+  if (
+    e.clientX >= parseFloat(e.target.style.left) &&
+    e.clientX <= parseFloat(e.target.style.left) + e.target.clientWidth &&
+    e.clientY >= parseFloat(e.target.style.top) + (e.target.clientHeight - e.target.clientHeight / 3) &&
+    e.clientY <= parseFloat(e.target.style.top) + e.target.clientHeight
+  ) {
+    e.target.style.transform = "rotate(180deg)";
+    domIdClassPair[e.target.id].flipped = true;
+  }
   let setVelocity = setInterval(() => {
     velocityX = mouseMoveEvent.clientX;
     velocityY = mouseMoveEvent.clientY;
@@ -88,6 +107,10 @@ function handle_character_drag(e) {
       [velocityX, velocityY],
       [mouseMoveEvent.clientX, mouseMoveEvent.clientY]
     );
+    if (domIdClassPair[e.target.id].flipped) {
+      e.target.style.transform = "";
+      domIdClassPair[e.target.id].flipped = false;
+    }
   }
   domIdClassPair[e.target.id].gravity = false;
   window.addEventListener("mousemove", mouseMove);
@@ -104,9 +127,9 @@ function character_velocity(c, preV, curV) {
       parseFloat(c.style.left) <= 0
     ) {
       if (parseFloat(c.style.left) > window.innerWidth - c.clientWidth) {
-        c.style.left = window.innerWidth - c.clientWidth + "px"
+        c.style.left = window.innerWidth - c.clientWidth + "px";
       } else if (parseFloat(c.style.left) < 0) {
-        c.style.left = 0 + "px"
+        c.style.left = 0 + "px";
       }
       clearInterval(movementX);
       return;
@@ -121,9 +144,9 @@ function character_velocity(c, preV, curV) {
       parseFloat(c.style.top) <= 0
     ) {
       if (parseFloat(c.style.top) > window.innerHeight - c.clientHeight) {
-        c.style.top = window.innerHeight - c.clientHeight + "px"
+        c.style.top = window.innerHeight - c.clientHeight + "px";
       } else if (parseFloat(c.style.top) < 0) {
-        c.style.top = 0 + "px"
+        c.style.top = 0 + "px";
       }
       clearInterval(movementY);
       return;
